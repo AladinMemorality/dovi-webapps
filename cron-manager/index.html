@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cron Jobs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f9fc;--surface:#fff;--accent:#6366f1;--accent-light:#eef2ff;
+  --text:#0f172a;--text-sec:#64748b;--text-dim:#94a3b8;
+  --border:#e2e8f0;--red:#ef4444;--green:#22c55e;--orange:#f97316;
+}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:1px solid var(--border);background:var(--surface)}
+.header h1{font-size:20px;font-weight:700}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;
+  border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s}
+.btn:active{opacity:.7}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-danger{background:transparent;border:1px solid var(--red);color:var(--red)}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:8px}
+
+/* Job list */
+.content{padding:16px 20px;max-width:600px;margin:0 auto}
+.job-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:16px;margin-bottom:12px;transition:border-color .15s}
+.job-card:hover{border-color:var(--accent)}
+.job-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.job-schedule{font-size:15px;font-weight:600;color:var(--text)}
+.job-cron{font-size:12px;color:var(--text-dim);margin-top:2px}
+.job-cmd{font-size:12px;color:var(--text-sec);margin-top:8px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.job-actions{display:flex;gap:6px;flex-shrink:0}
+.job-disabled{opacity:.5}
+.job-disabled .job-schedule{text-decoration:line-through}
+
+/* Toggle */
+.toggle{position:relative;width:42px;height:24px;border-radius:12px;border:none;
+  cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle.off{background:var(--border)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;
+  border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.toggle.on::after{transform:translateX(18px)}
+
+/* Next runs */
+.next-runs{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.next-runs summary{font-size:11px;color:var(--text-dim);cursor:pointer;user-select:none}
+.next-runs ul{list-style:none;margin-top:6px}
+.next-runs li{font-size:11px;color:var(--text-sec);padding:2px 0}
+
+/* Empty state */
+.empty{text-align:center;padding:60px 20px}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:.3}
+.empty h2{font-size:18px;font-weight:600;margin-bottom:6px}
+.empty p{font-size:14px;color:var(--text-sec);margin-bottom:20px}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;
+  display:flex;align-items:flex-end;justify-content:center}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:600px;
+  max-height:90vh;overflow-y:auto;padding:24px 20px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:20px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--text-sec);margin-bottom:6px}
+.field input,.field textarea,.field select{width:100%;padding:10px 12px;border:1px solid var(--border);
+  border-radius:10px;font-family:inherit;font-size:14px;outline:none;background:var(--bg);
+  transition:border-color .15s}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent)}
+.field textarea{resize:vertical;min-height:60px}
+.field .hint{font-size:11px;color:var(--text-dim);margin-top:4px}
+
+/* Presets */
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.preset{padding:6px 12px;border-radius:20px;border:1px solid var(--border);
+  background:var(--surface);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.preset:hover,.preset.active{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
+
+/* Schedule grid */
+.sched-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+.sched-grid select{padding:8px 4px;border:1px solid var(--border);border-radius:8px;
+  font-size:12px;background:var(--bg);text-align:center}
+.sched-grid label{font-size:10px;color:var(--text-dim);text-align:center;margin-bottom:2px}
+
+.modal-actions{display:flex;gap:8px;margin-top:20px}
+.modal-actions .btn{flex:1;justify-content:center}
+
+/* Preview */
+.preview-box{background:var(--accent-light);border-radius:10px;padding:12px;margin-bottom:16px}
+.preview-box p{font-size:13px;font-weight:500;color:var(--accent)}
+.preview-box .preview-next{font-size:11px;color:var(--text-sec);margin-top:4px}
+
+/* Loading */
+.loading{text-align:center;padding:60px 20px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Error */
+.error-bar{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;
+  margin-bottom:12px;font-size:13px;color:var(--red)}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Cron Jobs</h1>
+  <button class="btn btn-primary" onclick="openModal()">+ Add Job</button>
+</div>
+<div class="content" id="content">
+  <div class="loading"><div class="spinner"></div><p style="color:var(--text-sec);font-size:14px">Loading cron jobs...</p></div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="overlay" id="modal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h2 id="modal-title">Add Cron Job</h2>
+
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:500;color:var(--text-sec);margin-bottom:8px;display:block">Quick Presets</label>
+      <div class="presets" id="presets"></div>
+    </div>
+
+    <label style="font-size:12px;font-weight:500;color:var(--text-sec);margin-bottom:6px;display:block">Schedule</label>
+    <div class="sched-grid">
+      <div><label>Min</label><input id="f-min" class="mono" value="*" oninput="updatePreview()"></div>
+      <div><label>Hour</label><input id="f-hour" class="mono" value="*" oninput="updatePreview()"></div>
+      <div><label>Day</label><input id="f-dom" class="mono" value="*" oninput="updatePreview()"></div>
+      <div><label>Month</label><input id="f-mon" class="mono" value="*" oninput="updatePreview()"></div>
+      <div><label>Weekday</label><input id="f-dow" class="mono" value="*" oninput="updatePreview()"></div>
+    </div>
+
+    <div class="preview-box" id="preview-box">
+      <p id="preview-desc">Every minute</p>
+      <p class="preview-next" id="preview-next"></p>
+    </div>
+
+    <div class="field">
+      <label>Command</label>
+      <textarea id="f-cmd" class="mono" placeholder="e.g. /usr/bin/backup.sh" rows="2"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Comment <span style="font-weight:400;color:var(--text-dim)">(optional)</span></label>
+      <input id="f-comment" placeholder="e.g. Nightly backup">
+    </div>
+
+    <div id="modal-error"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modal-save" onclick="saveJob()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const TOKEN = params.get('token') || '';
+const API = location.origin;
+
+let jobs = [];
+let editIndex = -1;
+
+const PRESETS = [
+  { label: 'Every minute', schedule: '* * * * *' },
+  { label: 'Every 5 min', schedule: '*/5 * * * *' },
+  { label: 'Every 15 min', schedule: '*/15 * * * *' },
+  { label: 'Hourly', schedule: '0 * * * *' },
+  { label: 'Daily midnight', schedule: '0 0 * * *' },
+  { label: 'Daily 3 AM', schedule: '0 3 * * *' },
+  { label: 'Weekly Sun', schedule: '0 0 * * 0' },
+  { label: 'Monthly 1st', schedule: '0 0 1 * *' },
+];
+
+// ── API ──
+
+async function api(path, opts = {}) {
+  const res = await fetch(`${API}${path}`, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${TOKEN}`,
+      ...(opts.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+async function execCmd(cmd) {
+  return api('/api/exec', { method: 'POST', body: JSON.stringify({ cmd }) });
+}
+
+// ── Cron parsing ──
+
+function parseCrontab(text) {
+  const lines = text.split('\n');
+  const result = [];
+  let pendingComment = '';
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Skip crontab header
+    if (trimmed.startsWith('# DO NOT EDIT') || trimmed.startsWith('# (') || trimmed.startsWith('# m h')) continue;
+
+    // Check for commented-out cron line: # * * * * * cmd
+    const commentedMatch = trimmed.match(/^#\s*([\S]+\s+[\S]+\s+[\S]+\s+[\S]+\s+[\S]+)\s+(.+)$/);
+    if (commentedMatch && isCronSchedule(commentedMatch[1])) {
+      result.push({
+        index: result.length,
+        schedule: commentedMatch[1],
+        command: commentedMatch[2],
+        enabled: false,
+        comment: pendingComment,
+      });
+      pendingComment = '';
+      continue;
+    }
+
+    // Pure comment line
+    if (trimmed.startsWith('#')) {
+      pendingComment = trimmed.replace(/^#\s*/, '');
+      continue;
+    }
+
+    // Skip env variable lines
+    if (trimmed.match(/^[A-Z_]+=/) && !trimmed.match(/^\*/)) continue;
+
+    // Active cron line
+    const match = trimmed.match(/^([\S]+\s+[\S]+\s+[\S]+\s+[\S]+\s+[\S]+)\s+(.+)$/);
+    if (match && isCronSchedule(match[1])) {
+      result.push({
+        index: result.length,
+        schedule: match[1],
+        command: match[2],
+        enabled: true,
+        comment: pendingComment,
+      });
+      pendingComment = '';
+    }
+  }
+  return result;
+}
+
+function isCronSchedule(s) {
+  const parts = s.trim().split(/\s+/);
+  if (parts.length !== 5) return false;
+  return parts.every(p => /^[\d\*\/,\-]+$/.test(p));
+}
+
+function buildCrontab(jobs) {
+  const lines = [];
+  for (const job of jobs) {
+    if (job.comment) lines.push(`# ${job.comment}`);
+    const line = `${job.schedule} ${job.command}`;
+    lines.push(job.enabled ? line : `# ${line}`);
+  }
+  return lines.join('\n') + '\n';
+}
+
+// ── Human-readable schedule ──
+
+function describeSchedule(expr) {
+  const [min, hour, dom, mon, dow] = expr.split(/\s+/);
+
+  // Every minute
+  if (expr === '* * * * *') return 'Every minute';
+
+  // Every N minutes
+  if (min.startsWith('*/') && hour === '*' && dom === '*' && mon === '*' && dow === '*') {
+    return `Every ${min.slice(2)} minutes`;
+  }
+
+  // Every N hours
+  if (min === '0' && hour.startsWith('*/') && dom === '*' && mon === '*' && dow === '*') {
+    return `Every ${hour.slice(2)} hours`;
+  }
+
+  // Hourly
+  if (hour === '*' && dom === '*' && mon === '*' && dow === '*') {
+    return `At minute ${min}, every hour`;
+  }
+
+  // Daily
+  if (dom === '*' && mon === '*' && dow === '*') {
+    return `Daily at ${pad(hour)}:${pad(min)}`;
+  }
+
+  // Weekly
+  if (dom === '*' && mon === '*' && dow !== '*') {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayName = days[parseInt(dow)] || `day ${dow}`;
+    return `Weekly on ${dayName} at ${pad(hour)}:${pad(min)}`;
+  }
+
+  // Monthly
+  if (mon === '*' && dow === '*' && dom !== '*') {
+    const suffix = dom === '1' ? 'st' : dom === '2' ? 'nd' : dom === '3' ? 'rd' : 'th';
+    return `Monthly on the ${dom}${suffix} at ${pad(hour)}:${pad(min)}`;
+  }
+
+  return expr;
+}
+
+function pad(v) { return String(v).padStart(2, '0'); }
+
+// ── Next runs calculator ──
+
+function nextRuns(expr, count = 5) {
+  const [minE, hourE, domE, monE, dowE] = expr.split(/\s+/);
+  const results = [];
+  const now = new Date();
+  const check = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() + 1, 0);
+
+  for (let i = 0; i < 525600 && results.length < count; i++) {
+    const d = new Date(check.getTime() + i * 60000);
+    if (matchField(minE, d.getMinutes()) &&
+        matchField(hourE, d.getHours()) &&
+        matchField(domE, d.getDate()) &&
+        matchField(monE, d.getMonth() + 1) &&
+        matchField(dowE, d.getDay())) {
+      results.push(d);
+    }
+  }
+  return results;
+}
+
+function matchField(expr, value) {
+  if (expr === '*') return true;
+  return expr.split(',').some(part => {
+    if (part.includes('/')) {
+      const [range, step] = part.split('/');
+      const s = parseInt(step);
+      if (range === '*') return value % s === 0;
+      const start = parseInt(range);
+      return value >= start && (value - start) % s === 0;
+    }
+    if (part.includes('-')) {
+      const [a, b] = part.split('-').map(Number);
+      return value >= a && value <= b;
+    }
+    return parseInt(part) === value;
+  });
+}
+
+function formatDate(d) {
+  const opts = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+  return d.toLocaleString(undefined, opts);
+}
+
+// ── Load & Render ──
+
+async function loadJobs() {
+  try {
+    const res = await execCmd('crontab -l 2>/dev/null || echo ""');
+    jobs = parseCrontab(res.stdout || '');
+    render();
+  } catch (e) {
+    document.getElementById('content').innerHTML =
+      `<div class="error-bar">Failed to load cron jobs: ${e.message}</div>`;
+  }
+}
+
+function render() {
+  const el = document.getElementById('content');
+
+  if (jobs.length === 0) {
+    el.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">&#128337;</div>
+        <h2>No cron jobs</h2>
+        <p>Schedule your first recurring task</p>
+        <button class="btn btn-primary" onclick="openModal()">+ Add Job</button>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = jobs.map((job, i) => `
+    <div class="job-card ${job.enabled ? '' : 'job-disabled'}">
+      <div class="job-top">
+        <div style="flex:1;min-width:0">
+          <div class="job-schedule">${job.comment || describeSchedule(job.schedule)}</div>
+          <div class="job-cron mono">${job.schedule}</div>
+        </div>
+        <div class="job-actions">
+          <button class="toggle ${job.enabled ? 'on' : 'off'}" onclick="toggleJob(${i})" title="${job.enabled ? 'Disable' : 'Enable'}"></button>
+        </div>
+      </div>
+      <div class="job-cmd mono">${escHtml(job.command)}</div>
+      <details class="next-runs">
+        <summary>Next runs</summary>
+        <ul>${nextRuns(job.schedule, 5).map(d => `<li>${formatDate(d)}</li>`).join('')}</ul>
+      </details>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn btn-outline btn-sm" onclick="editJob(${i})">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteJob(${i})">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Actions ──
+
+async function saveCrontab() {
+  const content = buildCrontab(jobs);
+  // Use printf to avoid echo interpreting escape sequences
+  const escaped = content.replace(/\\/g, '\\\\').replace(/'/g, "'\\''");
+  await execCmd(`printf '%s' '${escaped}' | crontab -`);
+}
+
+async function toggleJob(i) {
+  jobs[i].enabled = !jobs[i].enabled;
+  render();
+  try {
+    await saveCrontab();
+  } catch (e) {
+    jobs[i].enabled = !jobs[i].enabled;
+    render();
+    alert('Failed to update: ' + e.message);
+  }
+}
+
+async function deleteJob(i) {
+  if (!confirm(`Delete this cron job?\n\n${jobs[i].schedule} ${jobs[i].command}`)) return;
+  const removed = jobs.splice(i, 1);
+  // Reindex
+  jobs.forEach((j, idx) => j.index = idx);
+  render();
+  try {
+    await saveCrontab();
+  } catch (e) {
+    jobs.splice(i, 0, ...removed);
+    jobs.forEach((j, idx) => j.index = idx);
+    render();
+    alert('Failed to delete: ' + e.message);
+  }
+}
+
+// ── Modal ──
+
+function openModal(idx) {
+  editIndex = typeof idx === 'number' ? idx : -1;
+  const job = editIndex >= 0 ? jobs[editIndex] : null;
+
+  document.getElementById('modal-title').textContent = job ? 'Edit Cron Job' : 'Add Cron Job';
+  document.getElementById('modal-save').textContent = job ? 'Update' : 'Add';
+
+  const sched = (job?.schedule || '* * * * *').split(/\s+/);
+  document.getElementById('f-min').value = sched[0] || '*';
+  document.getElementById('f-hour').value = sched[1] || '*';
+  document.getElementById('f-dom').value = sched[2] || '*';
+  document.getElementById('f-mon').value = sched[3] || '*';
+  document.getElementById('f-dow').value = sched[4] || '*';
+  document.getElementById('f-cmd').value = job?.command || '';
+  document.getElementById('f-comment').value = job?.comment || '';
+  document.getElementById('modal-error').innerHTML = '';
+
+  renderPresets();
+  updatePreview();
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+function editJob(i) { openModal(i); }
+
+function renderPresets() {
+  document.getElementById('presets').innerHTML = PRESETS.map(p =>
+    `<button class="preset" onclick="applyPreset('${p.schedule}')">${p.label}</button>`
+  ).join('');
+}
+
+function applyPreset(schedule) {
+  const parts = schedule.split(/\s+/);
+  document.getElementById('f-min').value = parts[0];
+  document.getElementById('f-hour').value = parts[1];
+  document.getElementById('f-dom').value = parts[2];
+  document.getElementById('f-mon').value = parts[3];
+  document.getElementById('f-dow').value = parts[4];
+  updatePreview();
+
+  // Highlight active preset
+  document.querySelectorAll('.preset').forEach(el => {
+    el.classList.toggle('active', el.textContent === PRESETS.find(p => p.schedule === schedule)?.label);
+  });
+}
+
+function getSchedule() {
+  return [
+    document.getElementById('f-min').value.trim() || '*',
+    document.getElementById('f-hour').value.trim() || '*',
+    document.getElementById('f-dom').value.trim() || '*',
+    document.getElementById('f-mon').value.trim() || '*',
+    document.getElementById('f-dow').value.trim() || '*',
+  ].join(' ');
+}
+
+function updatePreview() {
+  const schedule = getSchedule();
+  document.getElementById('preview-desc').textContent = describeSchedule(schedule);
+  const runs = nextRuns(schedule, 3);
+  document.getElementById('preview-next').textContent = runs.length
+    ? 'Next: ' + runs.map(d => formatDate(d)).join(' | ')
+    : '';
+}
+
+async function saveJob() {
+  const schedule = getSchedule();
+  const command = document.getElementById('f-cmd').value.trim();
+  const comment = document.getElementById('f-comment').value.trim();
+
+  if (!command) {
+    document.getElementById('modal-error').innerHTML =
+      '<div class="error-bar">Command is required</div>';
+    return;
+  }
+
+  if (!isCronSchedule(schedule)) {
+    document.getElementById('modal-error').innerHTML =
+      '<div class="error-bar">Invalid schedule format</div>';
+    return;
+  }
+
+  const job = { schedule, command, enabled: true, comment };
+
+  if (editIndex >= 0) {
+    job.enabled = jobs[editIndex].enabled;
+    jobs[editIndex] = { ...job, index: editIndex };
+  } else {
+    job.index = jobs.length;
+    jobs.push(job);
+  }
+
+  render();
+  closeModal();
+
+  try {
+    await saveCrontab();
+  } catch (e) {
+    alert('Failed to save: ' + e.message);
+    loadJobs(); // Reload to get back to real state
+  }
+}
+
+// ── Init ──
+loadJobs();
+</script>
+</body>
+</html>
