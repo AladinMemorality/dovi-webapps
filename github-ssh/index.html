@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>GitHub SSH Setup</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f8f9fc;--surface:#fff;--border:#e5e7eb;
+  --text:#0f172a;--text-sec:#475569;--text-dim:#94a3b8;
+  --accent:#6366f1;--green:#16a34a;--red:#ef4444;
+  --r:14px;--rs:10px;--rx:8px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:'Menlo','Courier New',monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);padding:20px;
+  -webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+
+/* Header */
+.header{text-align:center;margin-bottom:20px}
+.icon-badge{display:inline-flex;width:64px;height:64px;border-radius:18px;
+  align-items:center;justify-content:center;margin-bottom:12px;background:#333}
+.icon-badge svg{width:32px;height:32px;fill:#fff}
+.title{font-size:24px;font-weight:700;margin-bottom:4px}
+.subtitle{font-size:14px;color:var(--text-sec);line-height:20px}
+
+/* Card */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.card p{font-size:14px;color:var(--text-sec);line-height:21px}
+
+/* Stepper */
+.step{display:flex;gap:14px}
+.step-rail{display:flex;flex-direction:column;align-items:center;width:26px}
+.step-circle{width:26px;height:26px;border-radius:13px;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.step-circle.pending{background:rgba(148,163,184,.15);color:var(--text-dim)}
+.step-circle.active{background:var(--accent);color:#fff}
+.step-circle.done{background:var(--green);color:#fff}
+.step-circle.error{background:var(--red);color:#fff}
+.rail-line{flex:1;width:2px;background:var(--border);margin:6px 0;border-radius:1px;min-height:12px}
+.rail-line.done{background:var(--green)}
+.step-body{flex:1;padding-bottom:22px}
+.step-title{font-size:14px;font-weight:600;margin-bottom:2px}
+.step-title.done{color:var(--green)}
+.step-title.pending{color:var(--text-dim)}
+.step-desc{font-size:12px;color:var(--text-dim);margin-top:2px}
+.step-desc.ok{color:var(--green)}
+
+/* Inputs */
+.input-group{margin-top:10px}
+.input-label{font-size:12px;color:var(--text-dim);margin-bottom:6px;display:block}
+.input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);
+  padding:12px 14px;font-size:14px;font-family:var(--font);color:var(--text);min-height:44px;outline:none}
+.input:focus{border-color:var(--accent)}
+.input::placeholder{color:rgba(148,163,184,.5)}
+
+/* Buttons */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;
+  border-radius:var(--rs);font-size:14px;font-weight:600;font-family:var(--font);border:none;
+  cursor:pointer;min-height:44px;width:100%;margin-top:10px;-webkit-tap-highlight-color:transparent}
+.btn:active{opacity:.8}
+.btn:disabled{opacity:.4;cursor:default}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
+
+/* Code card */
+.code-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:10px}
+.code-label{font-size:12px;color:var(--text-dim);margin-bottom:10px}
+.code-value{font-family:var(--mono);font-size:11px;color:var(--text);line-height:16px;
+  word-break:break-all;margin-bottom:12px}
+.copy-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;
+  border-radius:var(--rx);background:rgba(99,102,241,.08);border:none;cursor:pointer;
+  font-size:13px;font-weight:600;font-family:var(--font);color:var(--accent);width:100%}
+.copy-btn.copied{color:var(--green)}
+
+/* Error */
+.error-box{display:flex;align-items:center;gap:6px;margin-top:8px;padding:10px;
+  background:rgba(239,68,68,.05);border-radius:var(--rx);font-size:12px;color:var(--red)}
+.error-box .retry{margin-left:auto;padding:4px 10px;border-radius:6px;background:rgba(239,68,68,.1);
+  border:none;cursor:pointer;font-size:12px;font-weight:500;color:var(--red);font-family:var(--font)}
+
+/* Wait */
+.wait{display:flex;align-items:center;gap:8px;margin-top:10px;padding:4px 0;font-size:12px;color:var(--text-dim)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(99,102,241,.3);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Configured */
+.configured{text-align:center;padding:28px;margin-bottom:20px;background:rgba(22,163,74,.03);
+  border-radius:var(--r);border:1px solid rgba(22,163,74,.12)}
+.configured .check{font-size:36px;color:var(--green)}
+.configured h3{font-size:17px;font-weight:600;margin-top:12px}
+.configured p{font-size:13px;color:var(--text-dim);margin-top:4px}
+
+.hidden{display:none}
+.mt{margin-top:10px}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="icon-badge">
+    <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+  </div>
+  <div class="title">GitHub</div>
+  <div class="subtitle">Configure SSH access to GitHub</div>
+</div>
+
+<!-- Configured state (shown when already set up) -->
+<div id="configured-view" class="hidden">
+  <div class="configured">
+    <div class="check">&#10003;</div>
+    <h3>Connected</h3>
+    <p id="configured-desc">SSH key is configured</p>
+  </div>
+  <button class="btn btn-outline" onclick="startReconfigure()">Reconfigure</button>
+</div>
+
+<!-- Setup flow -->
+<div id="setup-view">
+  <div class="card">
+    <p>Set up SSH authentication so your server can clone private repos and push code to GitHub.</p>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading-card" class="card">
+    <div class="wait"><span class="spinner"></span> Checking status...</div>
+  </div>
+
+  <!-- Steps -->
+  <div id="steps-card" class="card hidden">
+    <!-- Step 1: Configure Identity -->
+    <div class="step">
+      <div class="step-rail">
+        <div class="step-circle pending" id="s1-circle">1</div>
+        <div class="rail-line" id="s1-rail"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-title" id="s1-title">Configure Identity</div>
+        <div id="s1-form" class="input-group">
+          <label class="input-label">Name</label>
+          <input class="input" id="git-name" placeholder="Your Name" autocapitalize="words" autocorrect="off">
+          <label class="input-label mt">Email</label>
+          <input class="input" id="git-email" placeholder="you@example.com" type="email" autocapitalize="off" autocorrect="off">
+          <button class="btn btn-primary" id="configure-btn" onclick="handleConfigure()">Generate SSH Key</button>
+        </div>
+        <div id="s1-wait" class="wait hidden"><span class="spinner"></span> Generating key...</div>
+        <div id="s1-done" class="step-desc ok hidden"></div>
+        <div id="s1-error" class="error-box hidden"><span id="s1-error-text"></span><button class="retry" onclick="handleConfigure()">Retry</button></div>
+      </div>
+    </div>
+
+    <!-- Step 2: Copy Key & Add to GitHub -->
+    <div class="step">
+      <div class="step-rail">
+        <div class="step-circle pending" id="s2-circle">2</div>
+        <div class="rail-line" id="s2-rail"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-title pending" id="s2-title">Add to GitHub</div>
+        <div id="s2-content" class="hidden">
+          <div class="code-card">
+            <div class="code-label">Copy this SSH key:</div>
+            <div class="code-value" id="key-display"></div>
+            <button class="copy-btn" id="copy-btn" onclick="handleCopy()">Copy Key</button>
+          </div>
+          <button class="btn btn-primary" onclick="handleOpenGithub()">Open GitHub Settings</button>
+        </div>
+        <div id="s2-done" class="step-desc ok hidden">Key added to GitHub</div>
+      </div>
+    </div>
+
+    <!-- Step 3: Verify -->
+    <div class="step">
+      <div class="step-rail">
+        <div class="step-circle pending" id="s3-circle">3</div>
+      </div>
+      <div class="step-body" style="padding-bottom:0">
+        <div class="step-title pending" id="s3-title">Verify Connection</div>
+        <div id="s3-actions" class="hidden">
+          <button class="btn btn-primary" id="verify-btn" onclick="handleVerify()">Verify SSH Connection</button>
+        </div>
+        <div id="s3-wait" class="wait hidden"><span class="spinner"></span> Testing connection...</div>
+        <div id="s3-done" class="step-desc ok hidden"></div>
+        <div id="s3-error" class="error-box hidden"><span id="s3-error-text"></span><button class="retry" onclick="handleVerify()">Retry</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── SDK (inline) ──────────────────────────────────────────
+  var params = new URLSearchParams(window.location.search);
+  var token = params.get('token') || '';
+  var baseUrl = window.location.origin;
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign(
+      { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      opts.headers || {}
+    );
+    return fetch(baseUrl + path, opts).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  function exec(cmd) {
+    return api('/api/exec', { method: 'POST', body: JSON.stringify({ cmd: cmd }) });
+  }
+
+  function bridge(msg) {
+    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+      window.ReactNativeWebView.postMessage(JSON.stringify(msg));
+    }
+  }
+
+  function copyText(text) {
+    bridge({ type: 'copy', text: text });
+    // Fallback for older webviews without bridge
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;left:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch(e) {}
+  }
+
+  function openUrl(url) {
+    // New app: handleNavRequest intercepts external URLs and opens in system browser.
+    // Old app: WebView navigates to the URL directly (back gesture returns).
+    window.location.href = url;
+  }
+
+  // ── State ──────────────────────────────────────────────────
+  var publicKey = '';
+  var gitEmail = '';
+
+  // ── DOM helpers ────────────────────────────────────────────
+  function $(id) { return document.getElementById(id); }
+  function show(id) { $(id).classList.remove('hidden'); }
+  function hide(id) { $(id).classList.add('hidden'); }
+  function setCircle(id, status) {
+    var el = $(id);
+    el.className = 'step-circle ' + status;
+    if (status === 'done') el.innerHTML = '&#10003;';
+    else if (status === 'active') el.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:2px;border-color:rgba(255,255,255,.3);border-top-color:#fff"></span>';
+    else if (status === 'error') el.innerHTML = '&#10007;';
+  }
+  function setTitle(id, status) {
+    var el = $(id);
+    el.className = 'step-title' + (status !== 'normal' ? ' ' + status : '');
+  }
+  function setRail(id, done) {
+    $(id).className = 'rail-line' + (done ? ' done' : '');
+  }
+
+  // ── Check status on load ───────────────────────────────────
+  async function checkStatus() {
+    try {
+      // Try the dedicated endpoint first (if dovi-server has it)
+      var status = await api('/api/apps/github-ssh/status');
+      if (status.gitName) $('git-name').value = status.gitName;
+      if (status.gitEmail) { $('git-email').value = status.gitEmail; gitEmail = status.gitEmail; }
+
+      if (status.githubAuthenticated) {
+        // Already configured — show configured view
+        $('configured-desc').textContent = status.githubUser
+          ? 'Authenticated as ' + status.githubUser
+          : 'SSH key is configured';
+        hide('setup-view');
+        show('configured-view');
+        return;
+      }
+
+      if (status.keyExists && status.publicKey) {
+        publicKey = status.publicKey;
+        gitEmail = status.gitEmail || '';
+        completeStep1();
+      }
+    } catch(e) {
+      // Fallback: use exec to check manually
+      try {
+        var nameResult = await exec('git config --global user.name 2>/dev/null || true');
+        var emailResult = await exec('git config --global user.email 2>/dev/null || true');
+        if (nameResult.stdout) $('git-name').value = nameResult.stdout.trim();
+        if (emailResult.stdout) { $('git-email').value = emailResult.stdout.trim(); gitEmail = emailResult.stdout.trim(); }
+
+        var keyResult = await exec('cat ~/.ssh/id_ed25519_github.pub 2>/dev/null || true');
+        if (keyResult.stdout && keyResult.stdout.startsWith('ssh-')) {
+          publicKey = keyResult.stdout.trim();
+          completeStep1();
+
+          // Check if GitHub is already verified
+          var sshResult = await exec('ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=5 -T git@github.com 2>&1 || true');
+          var match = sshResult.stdout.match(/Hi ([^!]+)!/);
+          if (match) {
+            hide('setup-view');
+            show('configured-view');
+            $('configured-desc').textContent = 'Authenticated as ' + match[1];
+            return;
+          }
+        }
+      } catch(e2) {
+        // Server unreachable — show form anyway
+      }
+    }
+
+    hide('loading-card');
+    show('steps-card');
+  }
+
+  function completeStep1() {
+    setCircle('s1-circle', 'done');
+    setRail('s1-rail', true);
+    setTitle('s1-title', 'done');
+    hide('s1-form');
+    hide('s1-wait');
+    hide('s1-error');
+    show('s1-done');
+    $('s1-done').textContent = 'Key generated' + (gitEmail ? ' for ' + gitEmail : '');
+
+    // Activate step 2
+    setCircle('s2-circle', 'pending');
+    setTitle('s2-title', 'normal');
+    $('key-display').textContent = publicKey;
+    show('s2-content');
+
+    // Activate step 3
+    setTitle('s3-title', 'normal');
+    show('s3-actions');
+  }
+
+  // ── Step 1: Configure ──────────────────────────────────────
+  window.handleConfigure = async function() {
+    var name = $('git-name').value.trim();
+    var email = $('git-email').value.trim();
+    if (!name || !email) return;
+
+    hide('s1-error');
+    hide('s1-form');
+    show('s1-wait');
+    setCircle('s1-circle', 'active');
+
+    try {
+      // Try dedicated endpoint first
+      try {
+        var result = await api('/api/apps/github-ssh/configure', {
+          method: 'POST',
+          body: JSON.stringify({ name: name, email: email })
+        });
+        if (result.ok && result.publicKey) {
+          publicKey = result.publicKey;
+          gitEmail = email;
+          hide('loading-card');
+          show('steps-card');
+          completeStep1();
+          return;
+        }
+      } catch(e) {
+        // Fallback to exec
+      }
+
+      // Exec fallback
+      await exec('git config --global user.name "' + name.replace(/"/g, '\\"') + '"');
+      await exec('git config --global user.email "' + email.replace(/"/g, '\\"') + '"');
+
+      // Generate key if not exists
+      var keyCheck = await exec('test -f ~/.ssh/id_ed25519_github && echo exists || echo missing');
+      if (keyCheck.stdout.trim() !== 'exists') {
+        await exec('mkdir -p ~/.ssh && ssh-keygen -t ed25519 -C "' + email.replace(/"/g, '\\"') + '" -f ~/.ssh/id_ed25519_github -N ""');
+      }
+
+      // Write SSH config
+      await exec('grep -q id_ed25519_github ~/.ssh/config 2>/dev/null || printf "\\nHost github.com\\n  HostName github.com\\n  User git\\n  IdentityFile ~/.ssh/id_ed25519_github\\n  IdentitiesOnly yes\\n" >> ~/.ssh/config');
+
+      // Set permissions
+      await exec('chmod 700 ~/.ssh && chmod 600 ~/.ssh/config ~/.ssh/id_ed25519_github && chmod 644 ~/.ssh/id_ed25519_github.pub');
+
+      // Read public key
+      var keyResult = await exec('cat ~/.ssh/id_ed25519_github.pub');
+      publicKey = keyResult.stdout.trim();
+      gitEmail = email;
+
+      hide('loading-card');
+      show('steps-card');
+      completeStep1();
+    } catch(err) {
+      hide('s1-wait');
+      show('s1-form');
+      show('s1-error');
+      $('s1-error-text').textContent = err.message || 'Configuration failed';
+      setCircle('s1-circle', 'error');
+    }
+  };
+
+  // ── Step 2: Copy & Open GitHub ─────────────────────────────
+  window.handleCopy = function() {
+    copyText(publicKey);
+    var btn = $('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'Copy Key';
+      btn.classList.remove('copied');
+    }, 2000);
+  };
+
+  window.handleOpenGithub = function() {
+    openUrl('https://github.com/settings/ssh/new');
+  };
+
+  // ── Step 3: Verify ─────────────────────────────────────────
+  window.handleVerify = async function() {
+    hide('s3-actions');
+    hide('s3-error');
+    show('s3-wait');
+    setCircle('s3-circle', 'active');
+
+    try {
+      // Try dedicated endpoint first
+      try {
+        var result = await api('/api/apps/github-ssh/validate', { method: 'POST' });
+        if (result.ok) {
+          completeStep3(result.user);
+          return;
+        }
+        throw new Error(result.message || 'Verification failed');
+      } catch(e) {
+        if (e.message && !e.message.startsWith('HTTP')) throw e;
+      }
+
+      // Exec fallback
+      var sshResult = await exec('ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -T git@github.com 2>&1 || true');
+      var match = sshResult.stdout.match(/Hi ([^!]+)!/);
+      if (match) {
+        completeStep3(match[1]);
+      } else {
+        var msg = sshResult.stdout.includes('Permission denied')
+          ? 'Permission denied \u2014 make sure the SSH key is added to your GitHub account'
+          : 'Connection failed \u2014 check your network and try again';
+        throw new Error(msg);
+      }
+    } catch(err) {
+      hide('s3-wait');
+      show('s3-actions');
+      show('s3-error');
+      $('s3-error-text').textContent = err.message || 'Verification failed';
+      setCircle('s3-circle', 'error');
+    }
+  };
+
+  function completeStep3(user) {
+    hide('s3-wait');
+    hide('s3-actions');
+    setCircle('s3-circle', 'done');
+    setTitle('s3-title', 'done');
+    show('s3-done');
+    $('s3-done').textContent = user ? 'Connected as ' + user : 'SSH connection verified';
+
+    // Also mark step 2 as done
+    setCircle('s2-circle', 'done');
+    setRail('s2-rail', true);
+    setTitle('s2-title', 'done');
+    hide('s2-content');
+    show('s2-done');
+  }
+
+  // ── Reconfigure ────────────────────────────────────────────
+  window.startReconfigure = function() {
+    hide('configured-view');
+    show('setup-view');
+    hide('loading-card');
+    show('steps-card');
+    // Reset to step 1 with key already generated
+    if (publicKey) {
+      completeStep1();
+    }
+  };
+
+  // ── Init ───────────────────────────────────────────────────
+  checkStatus();
+
+})();
+</script>
+</body>
+</html>
